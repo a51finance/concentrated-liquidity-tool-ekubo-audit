@@ -1283,7 +1283,7 @@ pub mod CLTBase {
             if strategy.account.ekubo_liquidity > 0 {
                 let collect_data = serialize::<
                     (PoolKey, felt252, Bounds),
-                >(@(strategy.pool_key.into(), 0, strategy.key.into()))
+                >(@(strategy.pool_key.into(), strategy_id.into(), strategy.key.into()))
                     .span();
 
                 let (fee0, fee1) = call_core_with_callback::<
