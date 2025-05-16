@@ -13,7 +13,7 @@ dependencies = [
 [[package]]
 name = "ekubo"
 version = "0.1.0"
-source = "git+https://github.com/ekuboprotocol/abis?rev=2a846ea35adcf066d7525eac39fea0df283e1c1f#2a846ea35adcf066d7525eac39fea0df283e1c1f"
+source = "git+https://github.com/ekuboprotocol/abis?rev=f4a16b95967c5596d5a3cd4e0422bb9a2e3eb017#f4a16b95967c5596d5a3cd4e0422bb9a2e3eb017"
 
 [[package]]
 name = "openzeppelin"

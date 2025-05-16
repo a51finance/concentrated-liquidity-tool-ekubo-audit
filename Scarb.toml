@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024_07"
 
 [dependencies]
-ekubo = { git = "https://github.com/ekuboprotocol/abis", rev="2a846ea35adcf066d7525eac39fea0df283e1c1f" }
+ekubo = { git = "https://github.com/ekuboprotocol/abis", rev="f4a16b95967c5596d5a3cd4e0422bb9a2e3eb017" }
 openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts", tag = "v0.20.0"}
 
 starknet = "2.9.2"
