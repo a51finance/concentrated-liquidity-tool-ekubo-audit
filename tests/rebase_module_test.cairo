@@ -65,6 +65,8 @@ fn setup() -> (
     //rebase module extension
     let rebase_module = deploy_rebase_module(base, ekubo_core(), twap_quoter);
 
+    base.toggle_operator(rebase_module.contract_address);
+
     //create multiextension data
     let (activated_extensions, extensions) = generate_extension_data(
         array![
@@ -196,7 +198,11 @@ fn test_simple_deposit() {
     let ekubo_share = ekubo_core()
         .get_position(
             pool_key,
-            PositionKey { salt: 0, owner: base.contract_address, bounds: strategy.key.into() },
+            PositionKey {
+                salt: pool_key.to_id().into(),
+                owner: base.contract_address,
+                bounds: strategy.key.into(),
+            },
         )
         .liquidity;
     assert_eq!(strategy.account.ekubo_liquidity, ekubo_share);
@@ -266,6 +272,9 @@ fn test_simple_deposit() {
     call_data_values.append(amount_out_u256.high.into());
 
     let swap_data_span = call_data_values.span();
+
+    base.toggle_operator(get_contract_address());
+
     base
         .shift_liquidity(
             ShiftLiquidityParams {
@@ -329,7 +338,11 @@ fn test_withdraw_with_automation_fee() {
     let ekubo_share = ekubo_core()
         .get_position(
             pool_key,
-            PositionKey { salt: 0, owner: base.contract_address, bounds: strategy.key.into() },
+            PositionKey {
+                salt: pool_key.to_id().into(),
+                owner: base.contract_address,
+                bounds: strategy.key.into(),
+            },
         )
         .liquidity;
     assert_eq!(strategy.account.ekubo_liquidity, ekubo_share);
@@ -398,6 +411,7 @@ fn test_withdraw_with_automation_fee() {
     call_data_values.append(amount_out_u256.high.into());
 
     let swap_data_span = call_data_values.span();
+    base.toggle_operator(get_contract_address());
 
     base
         .shift_liquidity(

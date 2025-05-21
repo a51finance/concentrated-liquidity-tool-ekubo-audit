@@ -4,6 +4,7 @@ pub mod clt_base {
     pub mod increase_liquidity;
     pub mod strategy;
     pub mod shift_liquidity;
+    pub mod withdraw;
 }
 
 pub mod utils {

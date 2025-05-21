@@ -95,6 +95,7 @@ pub mod CLTBase {
         reentrancy_guard: ReentrancyGuardComponent::Storage,
         #[substorage(v0)]
         user_positions: UserPositionsComponent::Storage,
+        operator_approved: Map<ContractAddress, bool>,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -242,6 +243,12 @@ pub mod CLTBase {
         order_hash: felt252,
     }
 
+    #[derive(Drop, starknet::Event)]
+    pub struct OperatorToggled {
+        operator: ContractAddress,
+        is_operator: bool,
+    }
+
     #[derive(starknet::Event, Drop)]
     #[event]
     pub enum Event {
@@ -260,6 +267,7 @@ pub mod CLTBase {
         ModifyVaultLiquidity: ModifyVaultLiquidity,
         OrderPlaced: OrderPlaced,
         OrderFilled: OrderFilled,
+        OperatorToggled: OperatorToggled,
         #[flat]
         Erc721Event: ERC721Component::Event,
         #[flat]
@@ -273,6 +281,7 @@ pub mod CLTBase {
         #[flat]
         PositionEvent: UserPositionsComponent::Event,
     }
+
 
     #[constructor]
     fn constructor(ref self: ContractState, params: BaseInitParams) {
@@ -842,6 +851,7 @@ pub mod CLTBase {
 
 
         fn shift_liquidity(ref self: ContractState, params: ShiftLiquidityParams) {
+            self.assert_only_operator();
             let strategy_id = params.order.pool_key.to_id();
 
             let strategy_storage = self.strategies.entry(strategy_id);
@@ -1003,6 +1013,8 @@ pub mod CLTBase {
         }
 
         fn place_swap_order(ref self: ContractState, params: SwapOrderParams) {
+            self.assert_only_operator();
+
             assert(
                 Position::get_hodl_status(
                     BytesHandler::read(
@@ -1099,6 +1111,17 @@ pub mod CLTBase {
         fn unpause(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.pausable.unpause();
+        }
+
+        fn toggle_operator(ref self: ContractState, operator: ContractAddress) {
+            self.ownable.assert_only_owner();
+            let is_operator = !self.operator_approved.entry(operator).read();
+            self.operator_approved.entry(operator).write(is_operator);
+            self.emit(OperatorToggled { operator, is_operator });
+        }
+
+        fn is_operator(self: @ContractState, operator: ContractAddress) -> bool {
+            self.operator_approved.entry(operator).read()
         }
     }
 
@@ -1356,6 +1379,11 @@ pub mod CLTBase {
                 || self.erc721.get_approved(token_id) == spender
                 || self.erc721.is_approved_for_all(owner, spender);
             assert(is_approved_or_owner, Errors::NOT_APPROVED);
+        }
+
+        fn assert_only_operator(self: @ContractState) {
+            let caller = get_caller_address();
+            assert(self.operator_approved.entry(caller).read(), Errors::ONLY_OPERATOR_ALLOWED);
         }
     }
 

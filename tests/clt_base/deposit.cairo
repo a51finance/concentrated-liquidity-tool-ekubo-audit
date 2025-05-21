@@ -15,6 +15,7 @@ use ekubo::interfaces::core::ICoreDispatcherTrait;
 use ekubo::interfaces::mathlib::{IMathLibDispatcherTrait, dispatcher as ekubo_math};
 use ekubo::types::i129::i129;
 use ekubo::types::keys::{PoolKey, PositionKey};
+use clt_ekubo::types::pool_id::{PoolIdTrait};
 
 // CLT-Ekubo Components
 use clt_ekubo::components::constants::Constants;
@@ -31,7 +32,6 @@ use clt_ekubo::interfaces::clt_base::{
     UpdatePositionParams, WithdrawParams,
 };
 use clt_ekubo::interfaces::clt_modules::StrategyPayload;
-use clt_ekubo::types::pool_id::PoolIdTrait;
 
 // CLT-Ekubo Extensions
 use clt_ekubo::extensions::multiextension::interfaces::multiextension_deployer::IMultiextensionDeployerDispatcherTrait;
@@ -74,6 +74,10 @@ fn setup() -> (ICLTBaseDispatcher, PoolKey, Span<felt252>) {
 
     //exit module extension
     let exit_module = deploy_exit_module(base, ekubo_core(), twap_quoter);
+
+    // start_cheat_caller_address(base.contract_address, owner());
+    base.toggle_operator(exit_module.contract_address);
+    // stop_cheat_caller_address(base.contract_address);
 
     //create multiextension data
     let (activated_extensions, extensions) = generate_extension_data(
@@ -199,7 +203,9 @@ fn test_simple_deposit() {
     let ekubo_share = ekubo_core()
         .get_position(
             pool_key,
-            PositionKey { salt: 0, owner: base.contract_address, bounds: strategy.key.into() },
+            PositionKey {
+                salt: pool_key.to_id(), owner: base.contract_address, bounds: strategy.key.into(),
+            },
         )
         .liquidity;
 
@@ -750,6 +756,10 @@ fn test_deposit_poc_scenario() {
     let (_, s1_fee0, s1_fee1) = base.get_strategy_reserves(pool_key.to_id(), true);
     let (_, s2_fee0, s2_fee1) = base.get_strategy_reserves(pool_key2.to_id(), true);
 
+    println!("s2_fee0: {}", s2_fee0);
+    println!("s2_fee1: {}", s2_fee1);
+    println!("s1_fee0: {}", s1_fee0);
+    println!("s1_fee1: {}", s1_fee1);
     cheat_caller_address(base.contract_address, user2, CheatSpan::TargetCalls(1));
     base.claim_position_fee(ClaimFeeParams { recipient: user2, token_id: 2 });
     assert_eq!(balance_of(pool_key2.token0, user2), s2_fee0 - 1);
@@ -931,4 +941,91 @@ fn test_deposit_succeeds_with_correct_fee_growth() {
         position.fee_growth_inside_1_last_X128,
         Math::mul_div(total_fee1, Constants::Q128, deposit_amount),
     );
+}
+
+
+#[test]
+#[fork("mainnet")]
+fn test_deposit_succeeds_artialDepositToken0() {
+    let (base, pool_key, actions) = setup();
+    let strategy_id = pool_key.to_id();
+    let deposit_amount = ether(10);
+
+    let (strategy, _) = base.strategies(strategy_id);
+}
+
+
+#[test]
+#[fork("mainnet")]
+fn test_compound_strategy_fee_reinvestment() {
+    let (base, pool_key, _) = setup();
+    let (user1, user2) = (contract_address_const::<1>(), contract_address_const::<2>());
+
+    let deposit_amount = ether(20);
+
+    transfer(pool_key.token0, user1, deposit_amount);
+    transfer(pool_key.token1, user1, deposit_amount);
+
+    transfer(pool_key.token0, user2, deposit_amount);
+    transfer(pool_key.token1, user2, deposit_amount);
+
+    start_cheat_caller_address(pool_key.token0, user1);
+    approve(pool_key.token0, base.contract_address, deposit_amount);
+    stop_cheat_caller_address(pool_key.token0);
+    start_cheat_caller_address(pool_key.token1, user1);
+    approve(pool_key.token1, base.contract_address, deposit_amount);
+    stop_cheat_caller_address(pool_key.token1);
+
+    start_cheat_caller_address(pool_key.token0, user2);
+    approve(pool_key.token0, base.contract_address, deposit_amount);
+    stop_cheat_caller_address(pool_key.token0);
+    start_cheat_caller_address(pool_key.token1, user2);
+    approve(pool_key.token1, base.contract_address, deposit_amount);
+    stop_cheat_caller_address(pool_key.token1);
+
+    // Initial deposit
+    cheat_caller_address(base.contract_address, user1, CheatSpan::TargetCalls(1));
+    base
+        .deposit(
+            DepositParams {
+                strategy_id: pool_key.to_id(),
+                amount0_desired: deposit_amount,
+                amount1_desired: deposit_amount,
+                amount0_min: 0,
+                amount1_min: 0,
+                recipient: user1,
+            },
+        );
+
+    let (strategy, _) = base.strategies(pool_key.to_id());
+
+    let ekubo_liquidity_before_compound = strategy.account.ekubo_liquidity;
+    println!("ekubo_liquidity_before_compound: {}", ekubo_liquidity_before_compound);
+
+    // Generate fees through multiple swaps
+    start_cheat_block_timestamp_global(get_block_timestamp() + 3600);
+    swap(pool_key, ether(1), true);
+    start_cheat_block_timestamp_global(get_block_timestamp() + 3600);
+    swap(pool_key, ether(1), false);
+    start_cheat_block_timestamp_global(get_block_timestamp() + 3600);
+
+    cheat_caller_address(base.contract_address, user2, CheatSpan::TargetCalls(1));
+    base
+        .deposit(
+            DepositParams {
+                strategy_id: pool_key.to_id(),
+                amount0_desired: deposit_amount,
+                amount1_desired: deposit_amount,
+                amount0_min: 0,
+                amount1_min: 0,
+                recipient: user2,
+            },
+        );
+
+    // Check that fees were reinvested
+    let (strategy, _) = base.strategies(pool_key.to_id());
+    let ekubo_liquidity_after_compound = strategy.account.ekubo_liquidity;
+    println!("ekubo_liquidity_after_compound: {}", ekubo_liquidity_after_compound);
+
+    assert_gt!(ekubo_liquidity_after_compound, ekubo_liquidity_before_compound);
 }

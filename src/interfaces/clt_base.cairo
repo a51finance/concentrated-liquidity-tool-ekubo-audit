@@ -268,6 +268,9 @@ pub trait ICLTBase<TContractState> {
     fn pause(ref self: TContractState);
     //unpause cltbase
     fn unpause(ref self: TContractState);
+
+    fn toggle_operator(ref self: TContractState, operator: ContractAddress);
+    fn is_operator(self: @TContractState, operator: ContractAddress) -> bool;
 }
 
 //clt base errors
@@ -284,4 +287,6 @@ pub mod Errors {
     pub const NOT_AUTHORIZED: felt252 = 'CLTBASE: not authorized';
     pub const EMPTY_STRATEGY: felt252 = 'CLTBASE: empty strategy';
     pub const INVALID_AUTOMATION_FEE: felt252 = 'CLTBASE: invalid automation fee';
+    pub const ONLY_OPERATOR_ALLOWED: felt252 = 'CLTBASE: only operator allowed';
+    pub const ONLY_SELF_ALLOWED: felt252 = 'CLTBASE: only self allowed';
 }

@@ -56,6 +56,8 @@ fn setup() -> (
     //exit module extension
     let exit_module = deploy_exit_module(base, ekubo_core(), twap_quoter);
 
+    base.toggle_operator(exit_module.contract_address);
+
     //create multiextension data
     let (activated_extensions, extensions) = generate_extension_data(
         array![

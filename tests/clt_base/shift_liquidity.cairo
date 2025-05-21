@@ -99,7 +99,11 @@ fn test_simple_shift() {
     let ekubo_share = ekubo_core()
         .get_position(
             pool_key,
-            PositionKey { salt: 0, owner: base.contract_address, bounds: strategy.key.into() },
+            PositionKey {
+                salt: pool_key.to_id().into(),
+                owner: base.contract_address,
+                bounds: strategy.key.into(),
+            },
         )
         .liquidity;
 
